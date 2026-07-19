@@ -1,0 +1,22 @@
+{
+  "name": "susee-vercel",
+  "version": "1.0.0",
+  "description": "Docs for susee js.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suseejs/susee-vercel.git"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/suseejs/susee-vercel/issues"
+  },
+  "homepage": "https://github.com/suseejs/susee-vercel#readme",
+  "dependencies": {
+    "mmcov": "^0.0.4"
+  }
+}

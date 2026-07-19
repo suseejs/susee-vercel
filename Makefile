@@ -1,12 +1,17 @@
 SHELL := bash
 
-.PHONY: dev build lint format init
+.PHONY: dev build lint format init install
 
 
+install:
+		npm i
+		bundle install
 dev:
-	bundle exec jekyll serve
+	JEKYLL_ENV=production bundle exec jekyll build
+	bash scripts/mmcov.sh
 build:
 	JEKYLL_ENV=production bundle exec jekyll build
+	bash scripts/mmcov.sh
 format:
 	bundle exec rufo .
 
