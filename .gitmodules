@@ -1,0 +1,3 @@
+[submodule "susee"]
+	path = susee
+	url = https://github.com/phothinmg/susee.git
