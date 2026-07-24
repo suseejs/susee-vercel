@@ -2,9 +2,9 @@ url: https://susee.js.org/
 # site
 title: susee
 source: docs
-markdown:  KramdownShiki_Fixed
-# kramdown:
-#   syntax_highlighter: none
+markdown:  kramdown
+kramdown:
+  syntax_highlighter: none
 sass:
   style: compressed
 plugins:
