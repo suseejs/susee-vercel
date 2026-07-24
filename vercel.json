@@ -15,6 +15,11 @@
 			"source": "/reference/:path*",
 			"destination": "/reference/:path*",
 			"permanent": true
+		},
+		{
+			"source": "/coverage/:path*",
+			"destination": "/coverage/:path*",
+			"permanent": true
 		}
 	],
 	"headers": [

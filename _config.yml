@@ -2,9 +2,9 @@ url: https://susee.js.org/
 # site
 title: susee
 source: docs
-markdown: kramdown
-kramdown:
-  syntax_highlighter: none
+markdown:  KramdownShiki_Fixed
+# kramdown:
+#   syntax_highlighter: none
 sass:
   style: compressed
 plugins:
@@ -14,6 +14,7 @@ plugins:
   - jekyll-pagefind
   - jekyll-minify-js
   - jekyll-tabler
+  - jekyll-include-cache
 exclude:
   - Makefile
 minify_js:
@@ -119,3 +120,13 @@ mmdocs:
         href: https://github.com/phothinmg/mmdevs.org
       - icon: ti-mail
         href: mailto:phothinmg@disroot.org
+exclude:
+  - Makefile
+  - node_modules/
+  - vendor/
+  - .jekyll-cache/
+  - .sass-cache/
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json

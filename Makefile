@@ -1,6 +1,6 @@
 SHELL := bash
 
-.PHONY: dev build lint format init install
+.PHONY: dev build lint format init install profile
 
 
 install:
@@ -20,3 +20,6 @@ lint:
 
 init:
 	node scripts/init.mjs
+
+profile:
+	bundle exec jekyll build --profile

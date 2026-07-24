@@ -54,7 +54,7 @@ layout: default
     <aside class="toc_aside" id="toc">
       <div>
         <p class="title">Table Of Content</p>
-        {% include docs/toc.html html=content toc=page.toc %}
+        {% include_cached docs/toc.html html=content toc=page.toc %}
       </div>
     </aside>
   {% endif %}
