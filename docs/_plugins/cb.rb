@@ -1,96 +1,141 @@
 # frozen_string_literal: true
 
 require "jekyll"
-require "nokogiri"
 require "json"
-require "open3"
 require "pathname"
-
-def shiki_plugin_config(site)
-  return {} unless site
-
-  site.config.fetch("shiki_code_block", {})
-end
-
-def resolve_shiki_bundle_path(site)
-  bundle_path = shiki_plugin_config(site)["bundle_path"]
-  return File.expand_path("../node/shiki.js", __dir__) unless bundle_path
-  return bundle_path if Pathname.new(bundle_path).absolute?
-
-  File.expand_path(bundle_path, site.source)
-end
-
-def shiki_highlight(code, lang, site)
-  plugin_config = shiki_plugin_config(site)
-  script_path = resolve_shiki_bundle_path(site)
-  input = JSON.generate({
-    code: code,
-    lang: lang,
-    theme: plugin_config["theme"]
-  }.compact)
-  stdout, stderr, status = Open3.capture3("node", script_path, stdin_data: input)
-  raise "Shiki highlight failed: #{stderr}" unless status.success?
-
-  stdout
-end
-
-def create_wrapper(lan, code, site)
-  lang = lan.capitalize
-  highlighted_code = shiki_highlight(code, lan, site)
-  <<~HTML
-    <div class="shiki_code" data-shiki-highlighter>
-      <div class="code_head">
-        <span>#{lan}</span>
-        <button type="button" aria-label="Highlight-#{lang}" data-copy-btn></button>
-      </div>
-      #{highlighted_code}
-    </div>
-  HTML
-end
-
-def replace_elements(node, site)
-  code_el = node.at_css('> code[class^="language-"]')
-  return unless code_el
-
-  code = code_el.text
-  lang = code_el["class"]
-         &.split
-         &.find { |class_name| class_name.start_with?("language-") }
-         &.delete_prefix("language-")
-  fragment = Nokogiri::HTML::DocumentFragment.parse(create_wrapper(lang, code, site))
-  node.replace(fragment)
-end
 
 module Jekyll
   # module Jekyll::ShikiCodeBlock
   module ShikiCodeBlock
-    def self.full_document?(html_content)
-      html_content.match?(/\A\s*(<!doctype\s+html|<html\b)/i)
+    class << self
+      def get_or_start_node_process(site)
+        return @node_io if defined?(@node_io) && !@node_io.closed?
+
+        script_path = resolve_shiki_bundle_path(site)
+        @node_io = IO.popen(["node", script_path], "r+")
+        @node_io.sync = true
+        @node_io
+      end
+
+      def shiki_plugin_config(site)
+        site ? site.config.fetch("shiki_code_block", {}) : {}
+      end
+
+      def resolve_shiki_bundle_path(site)
+        bundle_path = shiki_plugin_config(site)["bundle_path"]
+        return File.expand_path("../node/shiki.js", __dir__) unless bundle_path
+        return bundle_path if Pathname.new(bundle_path).absolute?
+
+        File.expand_path(bundle_path, site.source)
+      end
+
+      def shiki_highlight(code, lang, site) # rubocop:disable Metrics/MethodLength
+        plugin_config = shiki_plugin_config(site)
+        io = get_or_start_node_process(site)
+
+        input_data = JSON.generate({
+          code: code,
+          lang: lang,
+          theme: plugin_config["theme"]
+        }.compact)
+
+        io.puts(input_data)
+        response_line = io.gets
+        raise "Shiki highlight pipeline broke unexpectedly" if response_line.nil?
+
+        response = JSON.parse(response_line)
+        raise "Shiki highlight failed: #{response["error"]}" if response["error"]
+
+        response["html"]
+      end
+
+      def create_wrapper(lang, code, site)
+        lang_label = lang.to_s.capitalize
+        highlighted_code = shiki_highlight(code, lang, site)
+        <<~HTML
+          <div class="shiki_code" data-shiki-highlighter>
+            <div class="code_head">
+              <span>#{lang}</span>
+              <button type="button" aria-label="Highlight-#{lang_label}" data-copy-btn></button>
+            </div>
+            #{highlighted_code}
+          </div>
+        HTML
+      end
     end
+  end
 
-    def self.transform_html(html_content, site)
-      doc = if full_document?(html_content)
-              Nokogiri::HTML.parse(html_content)
-            else
-              Nokogiri::HTML::DocumentFragment.parse(html_content)
-            end
-      elements = doc.css("pre").select { |pre| pre.at_css('> code[class^="language-"]') }
-      return html_content if elements.empty?
+  # Override Jekyll's default Kramdown handler
+  module Converters
+    module Markdown
+      # class Jekyll::Converters::Markdown::KramdownShiki
+      class KramdownShiki < Converters::Markdown
+        def initialize(config)
+          super
+          @config = config
+        end
 
-      elements.each { |node| replace_elements(node, site) }
-      doc.to_html
+        def matches(ext)
+          ext =~ /^\.(md|markdown)$/i
+        end
+
+        def output_ext(ext)
+          ".html"
+        end
+
+        def convert(content)
+          Thread.current[:jekyll_site_config] = @config
+
+          document = Kramdown::Document.new(content, Utils.symbolize_hash_keys(@config["kramdown"]))
+          html_output = document.to_shiki_html
+
+          Thread.current[:jekyll_site_config] = nil
+          html_output
+        end
+      end
+
+      # class Jekyll::Converters::Markdown::ShikiHtml
+      class ShikiHtml < Html
+        def convert_codeblock(el, indent)
+          lang = extract_code_language(el)
+          code = el.value
+
+          site_config = Thread.current[:jekyll_site_config]
+          Jekyll::ShikiCodeBlock.create_wrapper(lang, code, site_config)
+        end
+
+        private
+
+        def extract_code_language(el) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity
+          # 1. Check if kramdown explicitly stored a parsed language option
+          return el.options[:lang].to_s if el.options && el.options[:lang] && !el.options[:lang].to_s.empty?
+
+          # 2. Fallback check for raw classes added inside code block braces
+          attr = el.attr || {}
+          if attr["class"]
+            classes = attr["class"].split
+            lang_class = classes.find { |c| c.start_with?("language-") }
+            return lang_class.sub("language-", "") if lang_class
+          end
+
+          "text"
+        end
+      end
     end
   end
 end
 
-Jekyll::Hooks.register :pages, :post_render do |page|
-  next unless page.output_ext == ".html"
-
-  page.output = Jekyll::ShikiCodeBlock.transform_html(page.output, page.site)
+# Register the new HTML converter with the Kramdown engine core
+class Kramdown::Document
+  def to_shiki_html
+    Kramdown::Converter::ShikiHtml.convert(@root, @options).first
+  end
 end
 
-Jekyll::Hooks.register :documents, :post_render do |document|
-  next unless document.output_ext == ".html"
-
-  document.output = Jekyll::ShikiCodeBlock.transform_html(document.output, document.site)
+# Safely close the pipe when the system exits
+at_exit do
+  if defined?(Jekyll::ShikiCodeBlock) && Jekyll::ShikiCodeBlock.instance_variable_defined?(:@node_io)
+    io = Jekyll::ShikiCodeBlock.instance_variable_get(:@node_io)
+    io.close unless io.closed?
+  end
 end
