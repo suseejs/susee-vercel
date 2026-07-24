@@ -81,7 +81,7 @@ module Jekyll
   # Override Jekyll's default Kramdown handler
   module Converters
     class Markdown
-      class KramdownShiki_Fixed < KramdownParser
+      class KramdownShiki < KramdownParser
         def initialize(config)
           @site_config = config
           super
@@ -102,7 +102,6 @@ module Jekyll
           Thread.current[:jekyll_site_config] = nil
         end
       end
-      KramdownShiki = KramdownShiki_Fixed
     end
   end
 end
