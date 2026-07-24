@@ -91,12 +91,12 @@ module Jekyll
     class Markdown
       class KramdownShiki < KramdownParser
         def initialize(config)
-          @site_config = config
           super
+          @full_site_config = config
         end
 
         def convert(content)
-          Jekyll::ShikiCodeBlock.with_site_config(@site_config) do
+          Jekyll::ShikiCodeBlock.with_site_config(@full_site_config) do
             document = Kramdown::JekyllDocument.new(content, @config)
             html_output = document.to_shiki_html
             if @config["show_warnings"]
