@@ -49,14 +49,14 @@ module Jekyll
         response["html"]
       end
 
-      def create_wrapper(lan, code, site)
-        lang = lan.to_s.capitalize
-        highlighted_code = shiki_highlight(code, lan, site)
+      def create_wrapper(lang, code, site)
+        lang_label = lang.to_s.capitalize
+        highlighted_code = shiki_highlight(code, lang, site)
         <<~HTML
           <div class="shiki_code" data-shiki-highlighter>
             <div class="code_head">
-              <span>#{lan}</span>
-              <button type="button" aria-label="Highlight-#{lang}" data-copy-btn></button>
+              <span>#{lang}</span>
+              <button type="button" aria-label="Highlight-#{lang_label}" data-copy-btn></button>
             </div>
             #{highlighted_code}
           </div>
@@ -96,9 +96,9 @@ module Jekyll
 
       # class Jekyll::Converters::Markdown::ShikiHtml
       class ShikiHtml < Html
-        def convert_codeblock(ell, indent)
-          lang = extract_code_language(ell)
-          code = ell.value
+        def convert_codeblock(el, indent)
+          lang = extract_code_language(el)
+          code = el.value
 
           site_config = Thread.current[:jekyll_site_config]
           Jekyll::ShikiCodeBlock.create_wrapper(lang, code, site_config)
@@ -106,12 +106,12 @@ module Jekyll
 
         private
 
-        def extract_code_language(ell) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity
+        def extract_code_language(el) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity
           # 1. Check if kramdown explicitly stored a parsed language option
-          return ell.options[:lang].to_s if ell.options && ell.options[:lang] && !ell.options[:lang].to_s.empty?
+          return el.options[:lang].to_s if el.options && el.options[:lang] && !el.options[:lang].to_s.empty?
 
           # 2. Fallback check for raw classes added inside code block braces
-          attr = ell.attr || {}
+          attr = el.attr || {}
           if attr["class"]
             classes = attr["class"].split
             lang_class = classes.find { |c| c.start_with?("language-") }
