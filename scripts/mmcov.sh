@@ -7,5 +7,5 @@ cd "$repo_root"
 # to susee
 
 cd susee
-npx mmcov coverage/lcov.info --out ../_site/coverage --project susee --source src --favicon ../docs/public/favicons/favicon.ico --mmdoc
+npx mmcov coverage/lcov.info --out ../_site/coverage --project susee --source src --favicon ../docs/public/favicons/favicon.ico --mmdocs
 cd ..
