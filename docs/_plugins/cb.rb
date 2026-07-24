@@ -8,6 +8,19 @@ module Jekyll
   # module Jekyll::ShikiCodeBlock
   module ShikiCodeBlock
     class << self
+      def site_config(site_or_config)
+        return {} unless site_or_config
+        return site_or_config.config if site_or_config.respond_to?(:config)
+
+        site_or_config
+      end
+
+      def site_source(site_or_config)
+        return site_or_config.source if site_or_config.respond_to?(:source)
+
+        site_config(site_or_config)["source"] || Dir.pwd
+      end
+
       def get_or_start_node_process(site)
         return @node_io if defined?(@node_io) && !@node_io.closed?
 
@@ -18,7 +31,7 @@ module Jekyll
       end
 
       def shiki_plugin_config(site)
-        site ? site.config.fetch("shiki_code_block", {}) : {}
+        site_config(site).fetch("shiki_code_block", {})
       end
 
       def resolve_shiki_bundle_path(site)
@@ -26,7 +39,7 @@ module Jekyll
         return File.expand_path("../node/shiki.js", __dir__) unless bundle_path
         return bundle_path if Pathname.new(bundle_path).absolute?
 
-        File.expand_path(bundle_path, site.source)
+        File.expand_path(bundle_path, site_source(site))
       end
 
       def shiki_highlight(code, lang, site) # rubocop:disable Metrics/MethodLength
@@ -67,59 +80,59 @@ module Jekyll
 
   # Override Jekyll's default Kramdown handler
   module Converters
-    module Markdown
-      # class Jekyll::Converters::Markdown::KramdownShiki
-      class KramdownShiki < Converters::Markdown
+    class Markdown
+      class KramdownShiki_Fixed < KramdownParser
         def initialize(config)
+          @site_config = config
           super
-          @config = config
-        end
-
-        def matches(ext)
-          ext =~ /^\.(md|markdown)$/i
-        end
-
-        def output_ext(ext)
-          ".html"
         end
 
         def convert(content)
-          Thread.current[:jekyll_site_config] = @config
+          Thread.current[:jekyll_site_config] = @site_config
 
-          document = Kramdown::Document.new(content, Utils.symbolize_hash_keys(@config["kramdown"]))
+          document = Kramdown::JekyllDocument.new(content, @config)
           html_output = document.to_shiki_html
-
-          Thread.current[:jekyll_site_config] = nil
+          if @config["show_warnings"]
+            document.warnings.each do |warning|
+              Jekyll.logger.warn "Kramdown warning:", warning
+            end
+          end
           html_output
+        ensure
+          Thread.current[:jekyll_site_config] = nil
         end
       end
+      KramdownShiki = KramdownShiki_Fixed
+    end
+  end
+end
 
-      # class Jekyll::Converters::Markdown::ShikiHtml
-      class ShikiHtml < Html
-        def convert_codeblock(el, indent)
-          lang = extract_code_language(el)
-          code = el.value
+module Kramdown
+  module Converter
+    class ShikiHtml < Html
+      def convert_codeblock(el, indent)
+        lang = extract_code_language(el)
+        code = el.value
 
-          site_config = Thread.current[:jekyll_site_config]
-          Jekyll::ShikiCodeBlock.create_wrapper(lang, code, site_config)
+        site_config = Thread.current[:jekyll_site_config]
+        Jekyll::ShikiCodeBlock.create_wrapper(lang, code, site_config)
+      end
+
+      private
+
+      def extract_code_language(el) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity
+        # 1. Check if kramdown explicitly stored a parsed language option
+        return el.options[:lang].to_s if el.options && el.options[:lang] && !el.options[:lang].to_s.empty?
+
+        # 2. Fallback check for raw classes added inside code block braces
+        attr = el.attr || {}
+        if attr["class"]
+          classes = attr["class"].split
+          lang_class = classes.find { |c| c.start_with?("language-") }
+          return lang_class.sub("language-", "") if lang_class
         end
 
-        private
-
-        def extract_code_language(el) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity
-          # 1. Check if kramdown explicitly stored a parsed language option
-          return el.options[:lang].to_s if el.options && el.options[:lang] && !el.options[:lang].to_s.empty?
-
-          # 2. Fallback check for raw classes added inside code block braces
-          attr = el.attr || {}
-          if attr["class"]
-            classes = attr["class"].split
-            lang_class = classes.find { |c| c.start_with?("language-") }
-            return lang_class.sub("language-", "") if lang_class
-          end
-
-          "text"
-        end
+        "text"
       end
     end
   end
