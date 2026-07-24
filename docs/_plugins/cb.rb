@@ -21,6 +21,14 @@ module Jekyll
         site_config(site_or_config)["source"] || Dir.pwd
       end
 
+      def with_site_config(site_config)
+        previous_site_config = Thread.current[:jekyll_site_config]
+        Thread.current[:jekyll_site_config] = site_config
+        yield
+      ensure
+        Thread.current[:jekyll_site_config] = previous_site_config
+      end
+
       def get_or_start_node_process(site)
         return @node_io if defined?(@node_io) && !@node_io.closed?
 
@@ -88,18 +96,16 @@ module Jekyll
         end
 
         def convert(content)
-          Thread.current[:jekyll_site_config] = @site_config
-
-          document = Kramdown::JekyllDocument.new(content, @config)
-          html_output = document.to_shiki_html
-          if @config["show_warnings"]
-            document.warnings.each do |warning|
-              Jekyll.logger.warn "Kramdown warning:", warning
+          Jekyll::ShikiCodeBlock.with_site_config(@site_config) do
+            document = Kramdown::JekyllDocument.new(content, @config)
+            html_output = document.to_shiki_html
+            if @config["show_warnings"]
+              document.warnings.each do |warning|
+                Jekyll.logger.warn "Kramdown warning:", warning
+              end
             end
+            html_output
           end
-          html_output
-        ensure
-          Thread.current[:jekyll_site_config] = nil
         end
       end
     end
