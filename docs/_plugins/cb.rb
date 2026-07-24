@@ -86,29 +86,26 @@ module Jekyll
     end
   end
 
-  # Override Jekyll's default Kramdown handler
-  module Converters
-    class Markdown
-      class KramdownShiki < Jekyll::Converters::Markdown::KramdownParser
-        def initialize(config)
-          super
-          @full_site_config = config
-          @kramdown_config = @config
-        end
+end
 
-        def convert(content)
-          Jekyll::ShikiCodeBlock.with_site_config(@full_site_config) do
-            document = Kramdown::Document.new(content, Jekyll::Utils.symbolize_hash_keys(@kramdown_config))
-            html_output = document.to_shiki_html
-            if @kramdown_config["show_warnings"]
-              document.warnings.each do |warning|
-                Jekyll.logger.warn "Kramdown warning:", warning
-              end
-            end
-            html_output
-          end
+# Override Jekyll's default Kramdown handler
+class Jekyll::Converters::Markdown::KramdownShiki < Jekyll::Converters::Markdown::KramdownParser
+  def initialize(config)
+    super
+    @full_site_config = config
+    @parser_config = @config
+  end
+
+  def convert(content)
+    Jekyll::ShikiCodeBlock.with_site_config(@full_site_config) do
+      document = Kramdown::Document.new(content, Jekyll::Utils.symbolize_hash_keys(@parser_config))
+      html_output = document.to_shiki_html
+      if @parser_config["show_warnings"]
+        document.warnings.each do |warning|
+          Jekyll.logger.warn "Kramdown warning:", warning
         end
       end
+      html_output
     end
   end
 end
