@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/suseejs/susee-vercel#readme",
   "dependencies": {
-    "mmcov": "^0.0.7"
+    "mmcov": "^0.0.8"
   }
 }

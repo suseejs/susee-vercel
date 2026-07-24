@@ -56,10 +56,3 @@
   rel="preconnect"
   href="https://fonts.gstatic.com"
   crossorigin />
-{% comment %} Title {% endcomment %}
-{% assign main_title = site.title %}
-{% assign site_title = main_title %}
-{% if page.title %}
-  {% assign site_title = page.title | append: ' | ' | append: main_title %}
-{% endif %}
-<title>{{ site_title }}</title>
